@@ -1,7 +1,10 @@
 package com.board.board.service;
 
+import com.board.board.dto.BoardForm;
 import com.board.board.entity.Board;
+import com.board.board.entity.User;
 import com.board.board.exception.DataNotFoundException;
+import com.board.board.entity.FileEntity;
 import com.board.board.repository.BoardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -11,7 +14,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +28,7 @@ import java.util.Optional;
 public class BoardService {
 
     private final BoardRepository boardRepository;
+    private final FileService fileService;
 
     public Page<Board> boardList(String query, String kw, int page) {
 
@@ -65,8 +72,29 @@ public class BoardService {
         Optional<Board> _board = boardRepository.findById(boardId);
         if(_board.isPresent()) {
             Board board = _board.get();
-            board.setHit(board.getHit() + 1);
+            board.increaseHitCount();
             boardRepository.save(board);
+        }
+    }
+
+    public void create (BoardForm boardForm, User user, List<MultipartFile> files) {
+        List<FileEntity> fileEntityList = new ArrayList<>();
+        Board board = Board.builder()
+                .subject(boardForm.getSubject())
+                .content(boardForm.getContent())
+                .regDate(LocalDateTime.now())
+                .hit(0)
+                .user(user)
+                .fileEntityList(fileEntityList)
+                .build();
+        boardRepository.save(board);
+
+        try {
+            for (MultipartFile file : files) {
+                fileEntityList.add(fileService.saveFile(file, board));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
